@@ -16,6 +16,7 @@ export default defineContentScript({
     const memberCapture = new MemberCapture();
     let lastScheduledId = '';
     let lastScheduledCount = -1;
+    let lastScheduledName = '';
     let pending: ListCaptureSnapshot | null = null;
     let writeTimer: number | undefined;
     let writing = Promise.resolve();
@@ -34,11 +35,13 @@ export default defineContentScript({
       if (!snapshot) {
         lastScheduledId = '';
         lastScheduledCount = -1;
+        lastScheduledName = '';
         return;
       }
-      if (lastScheduledId === snapshot.listId && lastScheduledCount === snapshot.accounts.length) return;
+      if (lastScheduledId === snapshot.listId && lastScheduledCount === snapshot.accounts.length && lastScheduledName === (snapshot.listName ?? '')) return;
       lastScheduledId = snapshot.listId;
       lastScheduledCount = snapshot.accounts.length;
+      lastScheduledName = snapshot.listName ?? '';
       pending = { ...snapshot, updatedAt: Date.now() };
       if (writeTimer !== undefined) clearTimeout(writeTimer);
       writeTimer = window.setTimeout(flushMembers, 180);

@@ -6,8 +6,8 @@
   --surface: #fafafa;
   --border: #e4e4e7;
   --input-border: #d4d4d8;
-  --ring: #71717a;
-  --primary: #18181b;
+  --ring: #3b82f6;
+  --primary: #2563eb;
   --primary-foreground: #fff;
   --danger: #b42318;
   font: 13px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -130,7 +130,7 @@ button {
 }
 button:hover { background: var(--surface); }
 button.primary { color: var(--primary-foreground); background: var(--primary); border-color: var(--primary); }
-button.primary:hover { background: #3f3f46; }
+button.primary:hover { background: #1d4ed8; }
 button.secondary { border-color: var(--border); box-shadow: 0 1px 2px #00000008; }
 button.quiet { border-color: transparent; color: var(--muted); background: transparent; }
 button.quiet:hover { color: var(--foreground); background: var(--surface); }
@@ -185,7 +185,7 @@ button.remove:hover { color: var(--danger); background: var(--surface); }
   font-size: 12px;
 }
 .capture-source { min-width: 0; overflow-wrap: anywhere; color: var(--muted); }
-.capture-count { flex-shrink: 0; font-weight: 650; font-variant-numeric: tabular-nums; }
+.capture-count { flex-shrink: 0; font-weight: 650; color: var(--primary); font-variant-numeric: tabular-nums; }
 .hint { margin: 9px 0 0; color: var(--muted); font-size: 11.5px; line-height: 1.55; }
 .message { margin: 14px 0 0; color: #166534; font-size: 12px; }
 .message:empty { display: none; }
@@ -206,15 +206,15 @@ button.remove:hover { color: var(--danger); background: var(--surface); }
     --surface: #18181b;
     --border: #27272a;
     --input-border: #3f3f46;
-    --ring: #d4d4d8;
-    --primary: #fafafa;
-    --primary-foreground: #18181b;
+    --ring: #60a5fa;
+    --primary: #3b82f6;
+    --primary-foreground: #fff;
     --danger: #f87171;
   }
   input[type="checkbox"].toggle-switch { background: #3f3f46; }
   input[type="checkbox"].toggle-switch::after { background: #fff; }
-  input[type="checkbox"].toggle-switch:checked::after { background: #18181b; }
-  button.primary:hover { background: #d4d4d8; }
+  input[type="checkbox"].toggle-switch:checked::after { background: #fff; }
+  button.primary:hover { background: #2563eb; }
   input::placeholder, textarea::placeholder { color: #71717a; }
   .message { color: #86efac; }
 }

@@ -1,6 +1,6 @@
 import './style.css';
 import { activeGroup, loadSettings, normalizeHandle, saveSettings, type Settings } from '../../src/settings';
-import { LIST_CAPTURE_KEY, parseListCapture, type ListCaptureSnapshot } from '../../src/list-capture';
+import { LIST_CAPTURE_KEY, parseListCapture, listGroupId, importListAsGroup, type ListCaptureSnapshot } from '../../src/list-capture';
 
 const root = document.querySelector<HTMLElement>('#app')!;
 let settings: Settings | null = null;
@@ -182,10 +182,10 @@ function render(): void {
   importSection.append(element('h2', 'Xリストから取り込む'));
   const captureRow = element('div', '', 'capture-row');
   captureRow.append(
-    element('span', lastCapture ? `リスト ID ${lastCapture.listId}` : 'リスト未取得', 'capture-source'),
+    element('span', lastCapture ? (lastCapture.listName ?? `Xリスト ${lastCapture.listId}`) : 'リスト未取得', 'capture-source'),
     element('span', lastCapture ? `${lastCapture.accounts.length}件取得済み` : '0件', 'capture-count'),
   );
-  const importButton = button('取得済みメンバーを追加', 'secondary wide');
+  const importButton = button('リストをグループに取り込む', 'secondary wide');
   importButton.addEventListener('click', () => { void importVisibleMembers(importButton); });
   importSection.append(
     captureRow,
@@ -212,13 +212,15 @@ async function importVisibleMembers(control: HTMLButtonElement): Promise<void> {
       notify('取得済みメンバーがありません。Xでリストの「メンバー」を開いてください。', true);
       return;
     }
-    const before = activeGroup(settings!).accounts.length;
-    const saved = await update((s) => {
-      const accounts = activeGroup(s).accounts;
-      activeGroup(s).accounts = [...new Set([...accounts, ...capture.accounts])].slice(0, 10000);
-    });
-    if (!saved) return;
-    notify(`リスト ID ${capture.listId} の取得済み${capture.accounts.length}件から${activeGroup(settings!).accounts.length - before}件追加しました。`);
+    if (!settings!.groups.some((group) => group.id === listGroupId(capture.listId)) && settings!.groups.length >= 100) {
+      notify('グループは100件までです。', true);
+      return;
+    }
+    const result: { value: ReturnType<typeof importListAsGroup> } = { value: null };
+    const saved = await update((s) => { result.value = importListAsGroup(s, capture); });
+    if (!saved || !result.value) return;
+    const imported = result.value;
+    notify(`「${imported.name}」${imported.created ? 'を作成' : 'を更新'}：${imported.added}件追加しました。`);
   } catch {
     notify('読み込みに失敗しました。Xでメンバー画面を開き直して再試行してください。', true);
   } finally {

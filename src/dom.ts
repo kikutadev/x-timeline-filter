@@ -35,6 +35,24 @@ export function listIdFromMembersPath(pathname: string): string | null {
   return /^\/(?:i|[a-zA-Z0-9_]{1,15})\/lists\/(\d+)\/members\/?$/.exec(pathname)?.[1] ?? null;
 }
 
+export function listIdFromDetailPath(pathname: string): string | null {
+  return /^\/(?:i|[a-zA-Z0-9_]{1,15})\/lists\/(\d+)\/?$/.exec(pathname)?.[1] ?? null;
+}
+
+export function listNameFromDetail(doc: Document): string | null {
+  // Mobile X puts the list title outside primaryColumn; its own heading is just "List".
+  // Only called on a list detail route, not on a timeline or members page.
+  for (const heading of doc.querySelectorAll('h1, h2, [role="heading"]')) {
+    const name = heading.textContent?.trim().replace(/\s+/g, ' ') ?? '';
+    if (name && name.length <= 120 &&
+        !/^(?:lists?|members?|list members|リスト|メンバー|posts?|ポスト)$/i.test(name) &&
+        !/^(?:to view keyboard shortcuts|keyboard shortcuts)/i.test(name)) {
+      return name.slice(0, 40);
+    }
+  }
+  return null;
+}
+
 export function isMembersPage(pathname: string): boolean {
   return listIdFromMembersPath(pathname) !== null;
 }
