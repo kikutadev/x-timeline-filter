@@ -100,6 +100,18 @@ try {
     await popup.screenshot({path:join(projectRoot, '.dev', 'popup-preview.png')});
   }
   assert.equal(await popup.evaluate(() => document.body.scrollWidth <= window.innerWidth), true, 'popup has no horizontal overflow');
+  // Narrow Xtend settings sheets must not hide the frequently used X-list import action.
+  await popup.setViewportSize({ width: 320, height: 640 });
+  const importAction = popup.getByRole('button', { name: '取得済みメンバーを追加' });
+  const importBounds = await importAction.boundingBox();
+  assert(importBounds && importBounds.y >= 0 && importBounds.y + importBounds.height < 640,
+    'list import must be visible without scrolling on a narrow mobile sheet');
+  assert.equal(await popup.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true,
+    'narrow popup must not overflow horizontally');
+  if (process.env.XTF_SCREENSHOT === '1') {
+    await popup.screenshot({path:join(projectRoot, '.dev', 'popup-mobile-preview.png')});
+  }
+  await popup.setViewportSize({ width: 1050, height: 860 });
 
   // SPA navigation must restore posts outside /home.
   await page.evaluate(() => history.pushState({}, '', '/search?q=demo'));

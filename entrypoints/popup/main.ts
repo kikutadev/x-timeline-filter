@@ -55,17 +55,24 @@ function render(): void {
   root.replaceChildren();
 
   const header = element('header');
-  header.append(element('h1', 'X Timeline Filter'), element('span', 'アカウント許可リスト', 'subtitle'));
+  header.append(element('h1', 'X Timeline Filter'), element('p', 'ホームに表示するアカウントを管理', 'subtitle'));
   root.append(header);
 
   const toggleBox = element('div', '', 'toolbar');
   const toggleLabel = element('label', '', 'toggle-line');
+  const toggleCopy = element('span', '', 'toggle-copy');
+  toggleCopy.append(
+    element('span', 'タイムラインのフィルター', 'toggle-title'),
+    element('span', settings.enabled ? '許可したアカウントのみ表示' : '現在はすべてのアカウントを表示', 'toggle-description'),
+  );
   const toggle = element('input') as HTMLInputElement;
   toggle.type = 'checkbox';
+  toggle.className = 'toggle-switch';
+  toggle.setAttribute('aria-label', 'フィルター ON/OFF');
   toggle.checked = settings.enabled;
   toggle.addEventListener('change', () => { void update((s) => { s.enabled = toggle.checked; }); });
-  toggleLabel.append(toggle, element('span', settings.enabled ? 'フィルター ON' : 'フィルター OFF'));
-  toggleBox.append(toggleLabel, element('span', `${group.accounts.length} アカウント`, 'count'));
+  toggleLabel.append(toggleCopy, toggle);
+  toggleBox.append(toggleLabel);
   root.append(toggleBox);
 
   const groups = element('section', '', 'section');
@@ -80,7 +87,7 @@ function render(): void {
     select.append(option);
   }
   select.addEventListener('change', () => { visibleAccountLimit = 100; void update((s) => { s.activeGroupId = select.value; }); });
-  const removeGroup = button('削除', 'subtle');
+  const removeGroup = button('削除', 'quiet dangerous');
   removeGroup.disabled = settings.groups.length === 1;
   removeGroup.title = '現在のグループを削除';
   removeGroup.addEventListener('click', () => {
@@ -99,7 +106,7 @@ function render(): void {
   groupName.maxLength = 40;
   groupName.required = true;
   groupName.setAttribute('aria-label', '新しいグループ名');
-  const create = element('button', '作成', 'primary');
+  const create = element('button', '作成', 'secondary');
   create.type = 'submit';
   createForm.append(groupName, create);
   createForm.addEventListener('submit', (event) => {
@@ -117,13 +124,15 @@ function render(): void {
   root.append(groups);
 
   const accountSection = element('section', '', 'section');
-  accountSection.append(element('h2', '表示するアカウント'));
+  const accountHeading = element('div', '', 'section-heading');
+  accountHeading.append(element('h2', '表示するアカウント'), element('span', `${group.accounts.length}件`, 'count-badge'));
+  accountSection.append(accountHeading);
   const accountForm = element('form', '', 'account-form');
   const input = element('textarea') as HTMLTextAreaElement;
   input.placeholder = '@username（改行・カンマ区切りで複数追加）';
   input.rows = 2;
   input.setAttribute('aria-label', '追加するアカウント');
-  const add = element('button', 'アカウントを追加', 'primary');
+  const add = element('button', 'アカウントを追加', 'primary wide');
   add.type = 'submit';
   accountForm.append(input, add);
   accountForm.addEventListener('submit', (event) => {
@@ -146,7 +155,7 @@ function render(): void {
   if (!group.accounts.length) members.append(element('p', '登録アカウントはありません。', 'empty'));
   for (const handle of group.accounts.slice(0, visibleAccountLimit)) {
     const item = element('div', '', 'account');
-    item.append(element('span', `@${handle}`));
+    item.append(element('span', `@${handle}`, 'account-name'));
     const remove = button('削除', 'remove');
     remove.setAttribute('aria-label', `@${handle} を削除`);
     remove.addEventListener('click', () => {
@@ -159,7 +168,7 @@ function render(): void {
   }
   accountSection.append(members);
   if (group.accounts.length > visibleAccountLimit) {
-    const more = button(`さらに表示（${Math.min(visibleAccountLimit, group.accounts.length)}/${group.accounts.length}件）`, 'subtle wide');
+    const more = button(`さらに表示（${Math.min(visibleAccountLimit, group.accounts.length)}/${group.accounts.length}件）`, 'quiet wide');
     more.addEventListener('click', () => {
       const scrollTop = members.scrollTop;
       visibleAccountLimit += 100;
@@ -169,20 +178,21 @@ function render(): void {
     });
     accountSection.append(more);
   }
-  root.append(accountSection);
-
   const importSection = element('section', '', 'section');
   importSection.append(element('h2', 'Xリストから取り込む'));
-  const importButton = button('取得済みメンバーを追加', 'subtle wide');
+  const captureRow = element('div', '', 'capture-row');
+  captureRow.append(
+    element('span', lastCapture ? `リスト ID ${lastCapture.listId}` : 'リスト未取得', 'capture-source'),
+    element('span', lastCapture ? `${lastCapture.accounts.length}件取得済み` : '0件', 'capture-count'),
+  );
+  const importButton = button('取得済みメンバーを追加', 'secondary wide');
   importButton.addEventListener('click', () => { void importVisibleMembers(importButton); });
   importSection.append(
-    element('p', lastCapture
-      ? `最後に開いたリスト ID ${lastCapture.listId}：${lastCapture.accounts.length}件取得済み`
-      : '取得済みメンバーはありません。', 'capture-count'),
+    captureRow,
     importButton,
-    element('p', 'Xでリストの「メンバー」を開き、必要な分だけスクロールしてから取り込みます。取得対象は画面に読み込まれたメンバーのみです。', 'hint'),
+    element('p', 'Xのリストでメンバーを開き、スクロールした分を取り込めます。', 'hint'),
   );
-  root.append(importSection);
+  root.append(importSection, accountSection);
 
   const message = element('p', info, error ? 'message error' : 'message');
   message.id = 'message';
