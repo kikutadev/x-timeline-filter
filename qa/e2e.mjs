@@ -118,7 +118,7 @@ try {
   await popup.emulateMedia({colorScheme:'dark'});
   assert.equal(await popup.evaluate(() => matchMedia('(prefers-color-scheme: dark)').matches), true);
   assert.equal(await popup.evaluate(() => getComputedStyle(document.documentElement).backgroundColor), 'rgb(9, 9, 11)');
-  assert.equal(await popup.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--primary').trim()), '#3b82f6');
+  assert.equal(await popup.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--primary').trim()), '#93c5fd');
   if (process.env.XTF_SCREENSHOT === '1') {
     await popup.screenshot({path:join(projectRoot,'.dev','popup-dark-preview.png')});
   }

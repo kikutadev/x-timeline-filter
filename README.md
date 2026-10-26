@@ -43,3 +43,7 @@ XのDOM変更で判定が壊れる場合があります。非表示処理の絶�
 `release/` に配布用ZIPとSHA-256検証値があります。アイコンの原本は `assets/icon.svg`、Chrome用PNGは `public/icon/` に配置しています。
 
 MITライセンス。詳細は [LICENSE](LICENSE) を参照してください。
+
+## 共通UIテーマ
+
+ポップアップでは `src/styles/tokens.css` のshadcn/ui形式のsemantic CSS variablesを使います。テーマ正本はXtend親リポジトリの `shared/extension-ui/tokens.css`。FF Analyzerと同じ青色・ライト／ダーク・フォーカス・角丸を共有し、単独リポジトリのビルドのため同期後CSSをコミットしています。
