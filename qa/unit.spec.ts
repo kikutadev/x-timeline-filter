@@ -1,9 +1,9 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { activeGroup, normalizeHandle, parseSettings } from '../src/settings';
-import { handleFromProfileHref, listIdFromMembersPath, postAuthor, visibleListMembers } from '../src/dom';
+import { handleFromProfileHref, listIdFromDetailPath, listIdFromMembersPath, listNameFromDetail, postAuthor, visibleListMembers } from '../src/dom';
 import { filterTimeline } from '../src/filter';
-import { MemberCapture, parseListCapture } from '../src/list-capture';
+import { MemberCapture, parseListCapture, importListAsGroup, listGroupId } from '../src/list-capture';
 
 const settings = (enabled = true, handles = ['alice']) => {
   const value = parseSettings(null);
@@ -112,6 +112,17 @@ describe('X list member import', () => {
 
 
 describe('member capture across natural scrolling', () => {
+  it('records the X list name on its detail screen before members', () => {
+    const capture = new MemberCapture();
+    document.body.innerHTML = '<h2>To view keyboard shortcuts, press question mark</h2><h2>Weather</h2><main role="main"><h1>List</h1></main>';
+    expect(listIdFromDetailPath('/i/lists/123')).toBe('123');
+    expect(listIdFromDetailPath('/i/lists/123/members')).toBe(null);
+    expect(listNameFromDetail(document)).toBe('Weather');
+    expect(capture.update(document, '/i/lists/123')).toBe(null);
+    document.body.innerHTML = '<main role="main"><h2>List members</h2><div data-testid="UserCell"><a href="/bob">Bob</a></div></main>';
+    expect(capture.update(document, '/i/lists/123/members')).toEqual({listId:'123',listName:'Weather',accounts:['bob']});
+    expect(capture.update(document, '/i/lists/456/members')).toEqual({listId:'456',accounts:['bob']});
+  });
   it('accumulates mounted cells and clears when leaving the member view', () => {
     const capture = new MemberCapture();
     document.body.innerHTML = '<main data-testid="primaryColumn"><h2>List members</h2><div data-testid="UserCell"><a href="/alice">Alice</a></div></main>';
@@ -130,5 +141,32 @@ describe('capture storage input', () => {
     expect(parseListCapture({listId:'123',accounts:'alice',updatedAt:1})).toBe(null);
     expect(parseListCapture({listId:'123',accounts:['@Alice','ALICE','/bad'],updatedAt:12}))
       .toEqual({listId:'123',accounts:['alice'],updatedAt:12});
+  });
+});
+
+describe('import X list as a standalone group', () => {
+  it('creates a named group without mixing into the manual group, then updates by list ID', () => {
+    const settings = parseSettings(null);
+    settings.groups[0]!.accounts = ['alice'];
+    const first = {listId:'123',listName:'Weather',accounts:['bob','charlie'],updatedAt:1};
+    expect(importListAsGroup(settings, first)).toEqual({name:'Weather',added:2,created:true});
+    expect(settings.activeGroupId).toBe(listGroupId('123'));
+    expect(settings.groups[0]!.accounts).toEqual(['alice']);
+    expect(settings.groups).toHaveLength(2);
+    expect(importListAsGroup(settings, {...first,accounts:['bob','delta']})).toEqual({name:'Weather',added:1,created:false});
+    expect(settings.groups).toHaveLength(2);
+    expect(settings.groups[1]!.accounts).toEqual(['bob','charlie','delta']);
+  });
+  it('creates a fallback group for direct member links and leaves another list alone', () => {
+    const settings = parseSettings(null);
+    expect(importListAsGroup(settings,{listId:'456',accounts:['alice'],updatedAt:1})).toEqual({name:'Xリスト 456',added:1,created:true});
+    expect(importListAsGroup(settings,{listId:'789',accounts:['bob'],updatedAt:2})?.created).toBe(true);
+    expect(settings.groups.map(g=>g.accounts)).toEqual([[],['alice'],['bob']]);
+  });
+  it('rejects adding the 101st group without corrupting other groups', () => {
+    const settings = parseSettings(null);
+    for (let i=0; i<99; i++) settings.groups.push({id:`g${i}`,name:`Group ${i}`,accounts:[]});
+    expect(importListAsGroup(settings,{listId:'77',accounts:['alice'],updatedAt:1})).toBe(null);
+    expect(settings.groups).toHaveLength(100);
   });
 });
