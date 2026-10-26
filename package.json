@@ -1,0 +1,25 @@
+{
+  "name": "x-timeline-filter",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Allowlist-based X timeline filtering (planned)",
+  "license": "MIT",
+  "scripts": {
+    "dev": "wxt",
+    "build": "wxt build",
+    "zip": "wxt zip",
+    "typecheck": "wxt prepare && tsc --noEmit",
+    "test": "vitest run qa/unit.spec.ts",
+    "test:e2e": "node qa/e2e.mjs",
+    "postinstall": "wxt prepare"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.3.6",
+    "happy-dom": "20.14.5",
+    "playwright": "1.64.1",
+    "typescript": "7.0.2",
+    "vitest": "5.0.1",
+    "wxt": "0.21.4"
+  }
+}
