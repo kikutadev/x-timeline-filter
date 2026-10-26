@@ -1,8 +1,11 @@
 import './style.css';
 import { activeGroup, loadSettings, normalizeHandle, saveSettings, type Settings } from '../../src/settings';
+import { LIST_CAPTURE_KEY, parseListCapture, type ListCaptureSnapshot } from '../../src/list-capture';
 
 const root = document.querySelector<HTMLElement>('#app')!;
 let settings: Settings | null = null;
+let lastCapture: ListCaptureSnapshot | null = null;
+let visibleAccountLimit = 100;
 let info = '';
 let error = false;
 
@@ -76,7 +79,7 @@ function render(): void {
     option.selected = entry.id === settings.activeGroupId;
     select.append(option);
   }
-  select.addEventListener('change', () => { void update((s) => { s.activeGroupId = select.value; }); });
+  select.addEventListener('change', () => { visibleAccountLimit = 100; void update((s) => { s.activeGroupId = select.value; }); });
   const removeGroup = button('削除', 'subtle');
   removeGroup.disabled = settings.groups.length === 1;
   removeGroup.title = '現在のグループを削除';
@@ -141,7 +144,7 @@ function render(): void {
 
   const members = element('div', '', 'accounts');
   if (!group.accounts.length) members.append(element('p', '登録アカウントはありません。', 'empty'));
-  for (const handle of group.accounts) {
+  for (const handle of group.accounts.slice(0, visibleAccountLimit)) {
     const item = element('div', '', 'account');
     item.append(element('span', `@${handle}`));
     const remove = button('削除', 'remove');
@@ -155,16 +158,30 @@ function render(): void {
     members.append(item);
   }
   accountSection.append(members);
+  if (group.accounts.length > visibleAccountLimit) {
+    const more = button(`さらに表示（${Math.min(visibleAccountLimit, group.accounts.length)}/${group.accounts.length}件）`, 'subtle wide');
+    more.addEventListener('click', () => {
+      const scrollTop = members.scrollTop;
+      visibleAccountLimit += 100;
+      render();
+      const list = root.querySelector<HTMLElement>('.accounts');
+      if (list) list.scrollTop = scrollTop;
+    });
+    accountSection.append(more);
+  }
   root.append(accountSection);
 
   const importSection = element('section', '', 'section');
   importSection.append(element('h2', 'Xリストから取り込む'));
-  const importButton = button('読み込んだメンバーを取り込む', 'subtle wide');
+  const importButton = button('取得済みメンバーを追加', 'subtle wide');
   importButton.addEventListener('click', () => { void importVisibleMembers(importButton); });
-  importSection.append(importButton, element(
-    'p', 'Xでリストの「メンバー」を開いてから実行。表示後にスクロールした分も蓄積します。未読み込みのメンバーは対象外です。',
-    'hint',
-  ));
+  importSection.append(
+    element('p', lastCapture
+      ? `最後に開いたリスト ID ${lastCapture.listId}：${lastCapture.accounts.length}件取得済み`
+      : '取得済みメンバーはありません。', 'capture-count'),
+    importButton,
+    element('p', 'Xでリストの「メンバー」を開き、必要な分だけスクロールしてから取り込みます。取得対象は画面に読み込まれたメンバーのみです。', 'hint'),
+  );
   root.append(importSection);
 
   const message = element('p', info, error ? 'message error' : 'message');
@@ -176,32 +193,32 @@ function render(): void {
 async function importVisibleMembers(control: HTMLButtonElement): Promise<void> {
   control.disabled = true;
   try {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!tab?.id || !tab.url || !/^https:\/\/(x\.com|twitter\.com)\//.test(tab.url)) {
-      throw new Error('Xのリスト画面で実行してください。');
+    // chrome.tabs does not exist in Xtend's WebKit extension runtime. Both
+    // Chrome and Xtend share the extension's storage namespace instead.
+    const stored = await chrome.storage.local.get(LIST_CAPTURE_KEY);
+    const capture = parseListCapture(stored[LIST_CAPTURE_KEY]);
+    lastCapture = capture;
+    if (!capture?.accounts.length) {
+      notify('取得済みメンバーがありません。Xでリストの「メンバー」を開いてください。', true);
+      return;
     }
-    const result = await chrome.tabs.sendMessage(tab.id, { type: 'XTF_LIST_MEMBERS' }) as {
-      ok: boolean; accounts?: string[]; error?: string;
-    };
-    if (!result?.ok) throw new Error(result?.error || 'メンバーを読み取れませんでした。');
-    const handles = [...new Set((result.accounts ?? []).map(normalizeHandle).filter((a): a is string => a !== null))];
-    if (!handles.length) return notify('読み込まれたメンバーが見つかりません。リストの画面をスクロールして再度試してください。', true);
     const before = activeGroup(settings!).accounts.length;
     const saved = await update((s) => {
       const accounts = activeGroup(s).accounts;
-      activeGroup(s).accounts = [...new Set([...accounts, ...handles])].slice(0, 10000);
+      activeGroup(s).accounts = [...new Set([...accounts, ...capture.accounts])].slice(0, 10000);
     });
     if (!saved) return;
-    notify(`読み込み済み${handles.length}件を確認、${activeGroup(settings!).accounts.length - before}件追加。未表示のメンバーは含まれません。`);
-  } catch (cause) {
-    notify(cause instanceof Error ? cause.message : 'リストの読み込みに失敗しました。', true);
+    notify(`リスト ID ${capture.listId} の取得済み${capture.accounts.length}件から${activeGroup(settings!).accounts.length - before}件追加しました。`);
+  } catch {
+    notify('読み込みに失敗しました。Xでメンバー画面を開き直して再試行してください。', true);
   } finally {
     control.disabled = false;
   }
 }
 
-void loadSettings().then((loaded) => {
+void Promise.all([loadSettings(), chrome.storage.local.get(LIST_CAPTURE_KEY)]).then(([loaded, stored]) => {
   settings = loaded;
+  lastCapture = parseListCapture(stored[LIST_CAPTURE_KEY]);
   render();
 }).catch(() => {
   root.textContent = '設定を読み込めませんでした。';

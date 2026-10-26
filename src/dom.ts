@@ -29,20 +29,30 @@ export function isHomeTimeline(pathname: string): boolean {
   return pathname === '/home' || pathname === '/home/';
 }
 
+// X uses a modal route for list members. Match the list ID, never unrelated
+// "Who to follow" users in the background timeline or sidebar.
+export function listIdFromMembersPath(pathname: string): string | null {
+  return /^\/(?:i|[a-zA-Z0-9_]{1,15})\/lists\/(\d+)\/members\/?$/.exec(pathname)?.[1] ?? null;
+}
+
 export function isMembersPage(pathname: string): boolean {
-  return /^\/i\/lists\/\d+\/members\/?$/.test(pathname);
+  return listIdFromMembersPath(pathname) !== null;
 }
 
 export function visibleListMembers(doc: Document, pathname: string): string[] | null {
+  if (!isMembersPage(pathname)) return null;
   const dialog = [...doc.querySelectorAll('[role="dialog"]')].find(
-    (node) => /(?:Members|メンバー|リストのメンバー)/i.test(
+    (node) => /(?:list members|members|メンバー|リストのメンバー)/i.test(
       node.querySelector('h1, h2, [role="heading"]')?.textContent ?? '',
     ),
   );
-  const root = dialog ?? (isMembersPage(pathname) ? doc : null);
-  if (!root) return null;
+  // A direct member-page navigation may use the primary column rather than a dialog.
+  // Only use it when its own heading confirms it contains list members.
+  const column = doc.querySelector('[data-testid="primaryColumn"]');
+  const columnHeading = column?.querySelector('h1, h2, [role="heading"]')?.textContent ?? '';
+  const root = dialog ?? (/^(?:list members|members|メンバー|リストのメンバー)$/i.test(columnHeading.trim()) ? column : null);
   const handles = new Set<string>();
-  for (const cell of root.querySelectorAll('[data-testid="UserCell"]')) {
+  for (const cell of root?.querySelectorAll('[data-testid="UserCell"]') ?? []) {
     for (const link of cell.querySelectorAll('a[href]')) {
       const handle = handleFromProfileHref(link.getAttribute('href'));
       if (handle) { handles.add(handle); break; }

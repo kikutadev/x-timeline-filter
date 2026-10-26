@@ -1,9 +1,9 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { activeGroup, normalizeHandle, parseSettings } from '../src/settings';
-import { handleFromProfileHref, postAuthor, visibleListMembers } from '../src/dom';
+import { handleFromProfileHref, listIdFromMembersPath, postAuthor, visibleListMembers } from '../src/dom';
 import { filterTimeline } from '../src/filter';
-import { MemberCapture } from '../src/list-capture';
+import { MemberCapture, parseListCapture } from '../src/list-capture';
 
 const settings = (enabled = true, handles = ['alice']) => {
   const value = parseSettings(null);
@@ -92,10 +92,10 @@ describe('X list member import', () => {
       <div data-testid="UserCell"><a href="/bob">Bob</a></div>
       <div data-testid="UserCell"><a href="/Alice">Alice</a></div>
     </div><div data-testid="UserCell"><a href="/outsider">Outsider</a></div>`;
-    expect(visibleListMembers(document, '/home')).toEqual(['alice', 'bob']);
+    expect(visibleListMembers(document, '/i/lists/123/members')).toEqual(['alice', 'bob']);
     document.body.innerHTML = '<div data-testid="UserCell"><a href="/outsider">Outsider</a></div>';
     expect(visibleListMembers(document, '/home')).toBe(null);
-    expect(visibleListMembers(document, '/i/lists/123/members')).toEqual(['outsider']);
+    expect(visibleListMembers(document, '/i/lists/123/members')).toEqual([]);
   });
 });
 
@@ -103,12 +103,21 @@ describe('X list member import', () => {
 describe('member capture across natural scrolling', () => {
   it('accumulates mounted cells and clears when leaving the member view', () => {
     const capture = new MemberCapture();
-    document.body.innerHTML = '<div data-testid="UserCell"><a href="/alice">Alice</a></div>';
-    expect(capture.update(document, '/i/lists/123/members')).toEqual(['alice']);
-    document.body.innerHTML = '<div data-testid="UserCell"><a href="/bob">Bob</a></div>';
-    expect(capture.update(document, '/i/lists/123/members')).toEqual(['alice','bob']);
+    document.body.innerHTML = '<main data-testid="primaryColumn"><h2>List members</h2><div data-testid="UserCell"><a href="/alice">Alice</a></div></main>';
+    expect(capture.update(document, '/i/lists/123/members')).toEqual({listId:'123',accounts:['alice']});
+    document.body.innerHTML = '<main data-testid="primaryColumn"><h2>List members</h2><div data-testid="UserCell"><a href="/bob">Bob</a></div></main>';
+    expect(capture.update(document, '/i/lists/123/members')).toEqual({listId:'123',accounts:['alice','bob']});
     expect(capture.update(document, '/home')).toBe(null);
-    expect(capture.update(document, '/i/lists/123/members')).toEqual(['bob']);
-    expect(capture.update(document, '/i/lists/456/members')).toEqual(['bob']);
+    expect(capture.update(document, '/i/lists/123/members')).toEqual({listId:'123',accounts:['bob']});
+    expect(capture.update(document, '/i/lists/456/members')).toEqual({listId:'456',accounts:['bob']});
+  });
+});
+
+describe('capture storage input', () => {
+  it('rejects unrelated or malformed stored snapshots', () => {
+    expect(parseListCapture({listId:'../../evil',accounts:['alice'],updatedAt:1})).toBe(null);
+    expect(parseListCapture({listId:'123',accounts:'alice',updatedAt:1})).toBe(null);
+    expect(parseListCapture({listId:'123',accounts:['@Alice','ALICE','/bad'],updatedAt:12}))
+      .toEqual({listId:'123',accounts:['alice'],updatedAt:12});
   });
 });
