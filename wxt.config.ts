@@ -3,7 +3,7 @@ import { defineConfig } from 'wxt';
 export default defineConfig({
   manifest: {
     name: 'X Timeline Filter',
-    version: '0.1.2',
+    version: '0.1.3',
     description: 'Show only allowed accounts in X home timelines. Settings stay on this device.',
     permissions: ['storage'],
     icons: {
