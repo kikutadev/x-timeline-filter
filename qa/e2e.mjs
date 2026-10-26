@@ -96,19 +96,41 @@ try {
   await page.evaluate(() => history.pushState({}, '', '/home'));
   await page.locator(`#bob[${flag}]`).waitFor({state:'attached'});
 
-  // Content script member collector only reads the rendered member dialog.
+  // A real headless extension session: capture via storage, not chrome.tabs messaging.
   await page.goto('https://x.com/i/lists/123/members', {waitUntil:'domcontentloaded'});
-  const response = await popup.evaluate(async () => {
-    const tabs = await chrome.tabs.query({});
-    for (const tab of tabs) {
-      try {
-        const response = await chrome.tabs.sendMessage(tab.id,{type:'XTF_LIST_MEMBERS'});
-        if (response?.ok) return response;
-      } catch { /* other tabs have no content script */ }
+  const readCapture = async () => popup.evaluate(async () =>
+    (await chrome.storage.local.get('timelineFilterLastListCapture')).timelineFilterLastListCapture);
+  async function waitForCapture(predicate) {
+    for (let i = 0; i < 60; i++) {
+      const snapshot = await readCapture();
+      if (predicate(snapshot)) return snapshot;
+      await page.waitForTimeout(150);
     }
-    throw new Error('Member page not found');
+    throw new Error('member capture did not reach the expected snapshot');
+  }
+  await waitForCapture(value => value?.listId === '123' && value.accounts?.length === 2);
+  assert.deepEqual((await readCapture()).accounts, ['bob','charlie'], 'must not capture background or sidebar');
+  // Simulate X virtualizing the list: earlier rendered rows disappear.
+  await page.evaluate(() => {
+    const dialog = document.querySelector('[role="dialog"]');
+    dialog.innerHTML = '<h2>List members</h2><div data-testid="UserCell"><a href="/Delta">Delta</a></div>';
   });
-  assert.deepEqual(response, {ok:true,accounts:['bob','charlie']});
+  await waitForCapture(value => value?.listId === '123' && value.accounts?.length === 3);
+  assert.deepEqual((await readCapture()).accounts, ['bob','charlie','delta']);
+  await popup.getByRole('button', {name:'取得済みメンバーを追加'}).click();
+  await popup.getByRole('status').getByText(/3件から3件追加/).waitFor();
+  assert.deepEqual(await popup.evaluate(async () => {
+    const settings = (await chrome.storage.local.get('timelineFilterSettings')).timelineFilterSettings;
+    return settings.groups.find(group => group.id === 'default').accounts;
+  }), ['alice','bob','charlie','delta']);
+  // Moving to another list must reset the captured members rather than mixing lists.
+  await page.evaluate(() => {
+    history.pushState({}, '', '/i/lists/456/members');
+    document.querySelector('[role="dialog"]').innerHTML =
+      '<h2>List members</h2><div data-testid="UserCell"><a href="/Echo">Echo</a></div>';
+  });
+  await waitForCapture(value => value?.listId === '456' && value.accounts?.length === 1);
+  assert.deepEqual((await readCapture()).accounts, ['echo']);
 
   // Neither popup changes nor filtering generate requests to X.
   assert.equal(intercepted, 2, 'only two deliberate navigations are expected');
@@ -119,8 +141,9 @@ try {
   }));
   const reopened = context.pages()[0] ?? await context.newPage();
   await reopened.goto('https://x.com/home', { waitUntil: 'domcontentloaded' });
-  await reopened.locator(`#bob[${flag}]`).waitFor({state:'attached'});
+  await reopened.locator(`#bob`).waitFor({state:'attached'});
   assert.equal(await reopened.locator(`#alice[${flag}]`).count(), 0);
+  assert.equal(await reopened.locator(`#charlie[${flag}]`).count(), 0);
   console.log('X Timeline Filter: extension E2E + persistence PASS');
 } finally {
   await context?.close();
