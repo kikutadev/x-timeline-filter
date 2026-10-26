@@ -22,6 +22,15 @@ const memberView = `<!doctype html><html lang="ja"><head><meta charset="utf-8"><
 <div data-testid="UserCell"><a href="/Charlie">Charlie</a></div></div>
 </body></html>`;
 
+// Match the live mobile X layout observed in iPhone Simulator: no dialog or
+// primaryColumn, only a main landmark headed "List members" with UserCell buttons.
+const mobileMemberView = `<!doctype html><html lang="ja"><body>
+<div data-testid="sidebarColumn"><div data-testid="UserCell"><a href="/outside">outside</a></div></div>
+<main role="main"><h2>List members</h2><section role="region">
+<div data-testid="cellInnerDiv"><button data-testid="UserCell"><a href="/Foxtrot">Foxtrot</a></button></div>
+<div data-testid="cellInnerDiv"><button data-testid="UserCell"><a href="/Golf">Golf</a></button></div>
+</section></main></body></html>`;
+
 const options = {
     executablePath: process.env.CHROME_BIN || undefined,
     channel: process.env.CHROME_BIN ? undefined : 'chromium',
@@ -36,7 +45,7 @@ try {
   await context.route('https://x.com/**', (route) => {
     intercepted++;
     const path = new URL(route.request().url()).pathname;
-    return route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: path === '/home' ? home : memberView });
+    return route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: path === '/home' ? home : path === '/i/lists/789/members' ? mobileMemberView : memberView });
   });
   // This extension intentionally has no background worker. Read the actual
   // installed ID from Chrome rather than requiring a service worker to exist.
@@ -49,6 +58,8 @@ try {
   await manager.close();
   const extensionUrl = `chrome-extension://${extensionId}`;
   const page = context.pages()[0] ?? await context.newPage();
+  page.on('pageerror', error => console.error('X PAGE ERROR:', error.message));
+  page.on('console', message => { if (message.type() === 'error' || message.type() === 'warning') console.error('X CONSOLE:', message.text()); });
   await page.goto('https://x.com/home', { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => !!document.getElementById('x-timeline-filter-style'));
   assert.equal(await page.locator(`#bob[${flag}]`).count(), 0, 'filter initially disabled');
@@ -106,7 +117,7 @@ try {
       if (predicate(snapshot)) return snapshot;
       await page.waitForTimeout(150);
     }
-    throw new Error('member capture did not reach the expected snapshot');
+    throw new Error('member capture did not reach the expected snapshot: ' + JSON.stringify({snapshot: await readCapture(), page: await page.evaluate(() => ({ path: location.pathname, userCells: document.querySelectorAll('[data-testid=UserCell]').length, dialogs: document.querySelectorAll('[role=dialog]').length, style: !!document.getElementById('x-timeline-filter-style') }))}));
   }
   await waitForCapture(value => value?.listId === '123' && value.accounts?.length === 2);
   assert.deepEqual((await readCapture()).accounts, ['bob','charlie'], 'must not capture background or sidebar');
@@ -132,8 +143,13 @@ try {
   await waitForCapture(value => value?.listId === '456' && value.accounts?.length === 1);
   assert.deepEqual((await readCapture()).accounts, ['echo']);
 
+  // Full-page mobile list member view (no dialog / primary column).
+  await page.goto('https://x.com/i/lists/789/members', {waitUntil:'domcontentloaded'});
+  await waitForCapture(value => value?.listId === '789' && value.accounts?.length === 2);
+  assert.deepEqual((await readCapture()).accounts, ['foxtrot', 'golf']);
+
   // Neither popup changes nor filtering generate requests to X.
-  assert.equal(intercepted, 2, 'only two deliberate navigations are expected');
+  assert.equal(intercepted, 3, 'only three deliberate navigations are expected');
   await context.close();
   context = await chromium.launchPersistentContext(profile, options);
   await context.route('https://x.com/**', route => route.fulfill({

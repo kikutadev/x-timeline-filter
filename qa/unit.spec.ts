@@ -86,6 +86,17 @@ describe('DOM filtering', () => {
 });
 
 describe('X list member import', () => {
+  it('finds mobile X full-page list members in main, ignoring sidebar users', () => {
+    document.body.innerHTML = `<div data-testid="sidebarColumn"><div data-testid="UserCell"><a href="/suggestion">Not a member</a></div></div>
+      <main role="main"><h2>List members</h2><section role="region">
+        <div data-testid="cellInnerDiv"><button data-testid="UserCell"><a href="/One">One</a></button></div>
+        <div data-testid="cellInnerDiv"><button data-testid="UserCell"><a href="/Two">Two</a></button></div>
+      </section></main>`;
+    expect(visibleListMembers(document, '/i/lists/205877981/members')).toEqual(['one', 'two']);
+    expect(visibleListMembers(document, '/home')).toBe(null);
+    document.querySelector('main h2')!.textContent = 'Your Home Timeline';
+    expect(visibleListMembers(document, '/i/lists/205877981/members')).toEqual([]);
+  });
   it('reads only the rendered members in the member view', () => {
     document.body.innerHTML = `<div role="dialog"><h2>Members</h2>
       <div data-testid="UserCell"><a href="/Alice">Alice</a></div>

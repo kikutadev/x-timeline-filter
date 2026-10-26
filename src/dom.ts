@@ -46,11 +46,16 @@ export function visibleListMembers(doc: Document, pathname: string): string[] | 
       node.querySelector('h1, h2, [role="heading"]')?.textContent ?? '',
     ),
   );
-  // A direct member-page navigation may use the primary column rather than a dialog.
-  // Only use it when its own heading confirms it contains list members.
-  const column = doc.querySelector('[data-testid="primaryColumn"]');
-  const columnHeading = column?.querySelector('h1, h2, [role="heading"]')?.textContent ?? '';
-  const root = dialog ?? (/^(?:list members|members|メンバー|リストのメンバー)$/i.test(columnHeading.trim()) ? column : null);
+  // Mobile X renders a full-page <main role="main"> instead of a dialog or
+  // primaryColumn. Check the heading before scanning to avoid sidebar users.
+  const isMembersRoot = (root: Element | null): root is Element =>
+    !!root && [...root.querySelectorAll('h1, h2, [role="heading"]')].some(
+      (heading) => /^(?:list members|members|メンバー|リストのメンバー)$/i.test(heading.textContent?.trim() ?? ''),
+    );
+  const primaryColumn = doc.querySelector('[data-testid="primaryColumn"]');
+  const main = doc.querySelector('main, [role="main"]');
+  const root = dialog ?? (isMembersRoot(primaryColumn) ? primaryColumn : null)
+    ?? (isMembersRoot(main) ? main : null);
   const handles = new Set<string>();
   for (const cell of root?.querySelectorAll('[data-testid="UserCell"]') ?? []) {
     for (const link of cell.querySelectorAll('a[href]')) {
