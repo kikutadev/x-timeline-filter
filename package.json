@@ -1,6 +1,6 @@
 {
   "name": "x-timeline-filter",
-  "version": "0.1.5",
+  "version": "0.1.7",
   "private": true,
   "type": "module",
   "description": "Allowlist-based X timeline filtering (planned)",

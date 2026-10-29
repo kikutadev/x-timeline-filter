@@ -1,3 +1,4 @@
+import '../../src/styles/tokens.css';
 import './style.css';
 import { activeGroup, loadSettings, normalizeHandle, saveSettings, type Settings } from '../../src/settings';
 import { LIST_CAPTURE_KEY, parseListCapture, listGroupId, importListAsGroup, type ListCaptureSnapshot } from '../../src/list-capture';
