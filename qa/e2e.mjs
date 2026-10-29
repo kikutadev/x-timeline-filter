@@ -73,6 +73,11 @@ try {
   await page.locator(`#bob[${flag}]`).waitFor({state:'attached'});
   assert.equal(await page.locator(`#alice[${flag}]`).count(), 0);
   assert.equal(await page.locator(`#charlie[${flag}]`).count(), 1);
+  // Hidden cells retain a measurable height, or X's virtualization loops.
+  assert.deepEqual(await page.locator('#bob').evaluate(el => ({
+    height: el.getBoundingClientRect().height,
+    visibility: getComputedStyle(el).visibility,
+  })), {height:24,visibility:'hidden'});
 
   // Dynamic insert and cell reuse without a page reload.
   await page.evaluate(() => {
@@ -131,6 +136,58 @@ try {
   await page.waitForFunction((flag) => !document.querySelector('#bob').hasAttribute(flag), flag);
   await page.evaluate(() => history.pushState({}, '', '/home'));
   await page.locator(`#bob[${flag}]`).waitFor({state:'attached'});
+
+  // Sparse allowlist: stop scrolling after sixty distinct home posts, then resume
+  // for another sixty without changing X requests or the active group.
+  await page.evaluate(() => {
+    const timeline = document.querySelector('#timeline');
+    timeline.style.minHeight = '16000px';
+    timeline.insertAdjacentHTML('beforeend', Array.from({length: 60}, (_, i) => `
+      <div data-testid="cellInnerDiv"><article data-testid="tweet">
+        <div data-testid="User-Name"><a href="/outsider">Outsider</a></div>
+        <a href="/outsider/status/${100000 + i}">time</a>
+      </article></div>`).join(''));
+  });
+  const gate = page.locator('#x-timeline-filter-gate:visible');
+  await gate.waitFor();
+  assert.match(await gate.textContent(), /60件確認 · 2件表示/);
+  await page.evaluate(() => scrollTo(0, 2000));
+  await page.waitForTimeout(80);
+  const budgetLimit = await page.evaluate(() => scrollY);
+  assert.ok(budgetLimit < 2000 && budgetLimit > 0, 'quota must preserve already scanned posts');
+  await page.mouse.wheel(0, 900);
+  await page.waitForTimeout(80);
+  assert.equal(await page.evaluate(() => scrollY), budgetLimit, 'wheel must not bypass the quota');
+  if (process.env.XTF_SCREENSHOT === '1') {
+    await mkdir(join(projectRoot, '.dev'), {recursive:true});
+    await page.screenshot({path:join(projectRoot,'.dev','gate-preview.png')});
+  }
+  await page.evaluate(() => scrollTo(0, 3000));
+  await page.waitForTimeout(100);
+  assert.equal(await page.evaluate(() => scrollY), budgetLimit, 'quota must prevent further scrolling');
+  await gate.getByRole('button', {name: 'さらに投稿を探す'}).click();
+  await page.waitForFunction(() => document.querySelector('#x-timeline-filter-gate')?.hidden === true);
+  assert.ok(await page.evaluate(limit => scrollY > limit, budgetLimit), 'continue must release the scroll limit');
+  await page.evaluate(() => {
+    document.querySelector('#timeline').insertAdjacentHTML('beforeend', Array.from({length: 60}, (_, i) => `
+      <div data-testid="cellInnerDiv"><article data-testid="tweet">
+        <div data-testid="User-Name"><a href="/outsider">Outsider</a></div>
+        <a href="/outsider/status/${200000 + i}">time</a>
+      </article></div>`).join(''));
+  });
+  await gate.waitFor();
+  assert.match(await gate.textContent(), /120件確認 · 2件表示/);
+  // Leaving home removes the scroll guard and the action, then returning resets the budget.
+  await page.evaluate(() => history.pushState({}, '', '/search?q=demo'));
+  await page.waitForFunction(() => document.querySelector('#x-timeline-filter-gate')?.hidden === true);
+  await page.evaluate(() => scrollTo(0, 1000));
+  await page.waitForTimeout(100);
+  assert.ok(await page.evaluate(() => scrollY >= 1000), 'non-home scrolling must be restored');
+  await page.evaluate(() => history.pushState({}, '', '/home'));
+  await gate.waitFor(); // Current mounted posts are scanned again on returning home.
+  await popup.locator('input[type=checkbox]').uncheck();
+  await page.waitForFunction(() => document.querySelector('#x-timeline-filter-gate')?.hidden === true);
+  await popup.locator('input[type=checkbox]').check();
 
   // A real headless extension session: capture via storage, not chrome.tabs messaging.
   await page.goto('https://x.com/i/lists/123', {waitUntil:'domcontentloaded'});
