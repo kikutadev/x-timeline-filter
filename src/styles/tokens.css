@@ -1,0 +1,68 @@
+/* Xtend X-extension theme. Source of truth: apps/Xtend/shared/extension-ui/tokens.css.
+ * Semantic tokens follow shadcn/ui naming; no framework/runtime dependency.
+ * See shared/extension-ui/README.md for the standalone-repository sync workflow.
+ */
+:root {
+  color-scheme: light;
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans JP", sans-serif;
+  --background: #ffffff;
+  --foreground: #18181b;
+  --card: #ffffff;
+  --card-foreground: #18181b;
+  --popover: #ffffff;
+  --popover-foreground: #18181b;
+  --primary: #2563eb;
+  --primary-foreground: #ffffff;
+  --secondary: #f4f4f5;
+  --secondary-foreground: #27272a;
+  --muted: #f4f4f5;
+  --muted-foreground: #71717a;
+  --accent: #eff6ff;
+  --accent-foreground: #1d4ed8;
+  --destructive: #b91c1c;
+  --destructive-foreground: #ffffff;
+  --border: #e4e4e7;
+  --input: #d4d4d8;
+  --ring: #3b82f6;
+  --success: #15803d;
+  --success-background: #f0fdf4;
+  --warning: #a16207;
+  --warning-background: #fefce8;
+  --radius: 0.625rem;
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 14px -4px rgb(0 0 0 / 0.12);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --background: #09090b;
+    --foreground: #fafafa;
+    --card: #18181b;
+    --card-foreground: #fafafa;
+    --popover: #18181b;
+    --popover-foreground: #fafafa;
+    --primary: #93c5fd;
+    --primary-foreground: #0b1220;
+    --secondary: #27272a;
+    --secondary-foreground: #fafafa;
+    --muted: #27272a;
+    --muted-foreground: #a1a1aa;
+    --accent: #172554;
+    --accent-foreground: #bfdbfe;
+    --destructive: #f87171;
+    --destructive-foreground: #450a0a;
+    --border: #3f3f46;
+    --input: #52525b;
+    --ring: #93c5fd;
+    --success: #86efac;
+    --success-background: #052e16;
+    --warning: #fde68a;
+    --warning-background: #422006;
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.22);
+    --shadow-md: 0 4px 14px -4px rgb(0 0 0 / 0.4);
+  }
+}

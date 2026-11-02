@@ -9,6 +9,12 @@ X（旧Twitter）のホームタイムラインに表示する投稿者を、端
 - 設定はChromeの `chrome.storage.local` に保存します。初期状態はOFFです。
 - Xへの独自API通信やCookieの取得、閲覧データの外部送信はしません。
 
+## 読み込み制御
+
+- Xのホームフィードは投稿セルを絶対配置し、要素の高さを使って仮想スクロールを管理するため、非表示セルの高さを0にせず24pxだけ残します。許可外の投稿本文は見えません。
+- ホームでフィルターONの場合、描画された投稿IDを重複なく数え、60件ごとに下方向のスクロールを停止します。「さらに投稿を探す」を押すと次の60件まで再開します。件数は通信件数ではありません。
+- フィルターOFF、グループ変更、ホーム以外への遷移では停止状態を解除します。X側ですでに開始した読み込みまでは中断できません。
+
 ## インストール
 
 [Releases](https://github.com/kikutadev/x-timeline-filter/releases) のChrome向けZIPをダウンロードし、解凍したフォルダーをChromeの `chrome://extensions/` から「パッケージ化されていない拡張機能を読み込む」で選択してください。
@@ -43,3 +49,7 @@ XのDOM変更で判定が壊れる場合があります。非表示処理の絶�
 `release/` に配布用ZIPとSHA-256検証値があります。アイコンの原本は `assets/icon.svg`、Chrome用PNGは `public/icon/` に配置しています。
 
 MITライセンス。詳細は [LICENSE](LICENSE) を参照してください。
+
+## 共通UIテーマ
+
+ポップアップでは `src/styles/tokens.css` のshadcn/ui形式のsemantic CSS variablesを使います。テーマ正本はXtend親リポジトリの `shared/extension-ui/tokens.css`。FF Analyzerと同じ青色・ライト／ダーク・フォーカス・角丸を共有し、単独リポジトリのビルドのため同期後CSSをコミットしています。
